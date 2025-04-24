@@ -1,0 +1,64 @@
+@startuml
+title MVP Medikamnete Portal
+
+top to bottom direction
+
+!includeurl https://raw.githubusercontent.com/RicardoNiepel/C4-PlantUML/master/C4_Container.puml
+
+Person(Patient, "Пациент")
+Person(Admin, "Администратор", "Сотрудник ресепшена")
+System(Portal, "Medikamnete Portal")
+
+
+Container_Boundary(DMZ, "DMZ") {
+
+    Container(ClientPortalUI, "Портал для клиентов", "React")
+    Container(ClientGateway, "Client APIGateway", "Kong")
+}
+
+Container_Boundary(Portal, "Portal") {
+  
+  
+ 
+  
+  Container(AdminPortalUI, "Портал для сотрудников", "React")
+
+  
+  Container(APIGateway, "APIGateway", "Kong")
+  
+  
+  Container(ClientVisitService, "Сервис записи на прием", "Java", "Раскладывает данные введеные/загруженные пользователем по соответсвующим хранилищам, в зависимосоти от их тэга")
+  Container(AdminVisitService, "Сервис просмотра записей на прием", "Java", "Отображает только базовые данные пациента")
+ 
+  Container(DBPIIB, "PII:basic DB", "PostgreSQL", "Хранение базовых персональных данных пациентов")
+  Container(DBPIIS, "PII:sensitive DB", "PostgreSQL", "Хранение чувствительных персональных данных пациентов")
+  Container(PIIS3, "S3 хранилище", "S3", "Хранение файлов пациентов")
+  Container(PHIDB, "PHI DB", "PostgreSQL", "Хранение медицинских данных пациентов")
+
+ 
+}
+
+Rel(Patient, ClientPortalUI, "Вносит данные для записи на прием [PII:basic,PII:sensitive]")
+Rel(Admin, AdminPortalUI, " [PII:basic,PII:sensitive]")
+
+
+Rel(ClientPortalUI, ClientGateway,"TLS >= 1.3")
+Rel(ClientGateway, ClientVisitService,"TLS >= 1.3")
+
+Rel(AdminPortalUI, APIGateway,"TLS >= 1.3")
+Rel(APIGateway, AdminVisitService,"TLS >= 1.3")
+
+Rel(ClientVisitService,DBPIIB, "Пишет/читает базовые персональные данные в БД")
+Rel(ClientVisitService,DBPIIS, "Пишет/читает чувствительные данные в БД")
+Rel(ClientVisitService,PIIS3, "Пишет/читает файлы в хранилище")
+
+
+
+
+
+
+
+
+
+
+@enduml
