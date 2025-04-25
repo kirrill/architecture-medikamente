@@ -1,0 +1,75 @@
+@startuml
+title MVP Medikamnete Portal
+
+top to bottom direction
+
+!includeurl https://raw.githubusercontent.com/RicardoNiepel/C4-PlantUML/master/C4_Container.puml
+
+Person(Patient, "Пациент")
+Person(Admin, "Администратор", "Сотрудник ресепшена")
+Person(ITAdmin, "Сисадмин", "Системный администратор")
+Person(Doctor, "Врач")
+System(Portal, "Medikamnete Portal")
+
+
+Container_Boundary(DMZ, "DMZ") {
+
+    Container(ClientPortalUI, "Портал для клиентов", "React")
+    Container(ClientGateway, "Client APIGateway", "Kong")
+}
+
+Container_Boundary(Portal, "Portal") {
+  
+  Container(AdminPortalUI, "Портал для сотрудников", "React")
+  
+  Container(ClientVisitService, "Сервис записи на прием", "Java", "Позоваляет выбрать доктора, желаемое время и дату приема")
+  Container(ClientDataHandler, "Сервис управления персональными данными", "Сервис предназначен для ведения пользователем своих персональных/медицинских данных.")
+  Container(AdminVisitService, "Сервис просмотра записей на прием", "Java", "Отображает только базовые данные пациента")
+  Container(DocrorService, "Сервис ведения приема", "Java", "Отображает только базовые данные пациента")
+ 
+  Container(DBJournal, "БД журнал записи", "PostgreSQL", "Хранит ФИО и дату рождения.\r\n Зашифровано SHA-256")
+  Container(DBPIIS, "PII:sensitive DB", "PostgreSQL", "Хранение чувствительных персональных данных пациентов\r\n Зашифровано SHA-256")
+  Container(PIIS3, "S3 хранилище", "S3", "Хранение файлов пациентов\r\n Зашифровано SHA-256")
+  Container(PHIDB, "PHI DB", "PostgreSQL", "Хранение медицинских данных пациентов\r\n Зашифровано SHA-256")
+  
+  
+  Container(DataDestroyer, "Сервис для удаления/архивации данных", "Сервис по работает по расписанию или запросу, анализирует срок хранения данных и обезличивает/перемещает в архив")
+}
+
+Rel(Patient, ClientPortalUI, "Вносит данные для записи на прием [PII:basic,PII:sensitive]")
+Rel(Admin, AdminPortalUI, "Просмотр журнала записи")
+
+Rel(ClientPortalUI, ClientGateway,"TLS1.3")
+Rel(ClientGateway, ClientVisitService,"Запись к врачу \n TLS1.3")
+Rel(ClientGateway, ClientDataHandler,"Ввод персональных данных\nTLS1.3")
+Rel(ClientGateway, DataDestroyer,"Запрос на отзыв обработки персональных данных \n TLS1.3")
+
+
+
+
+Rel(ClientVisitService,DBJournal, "Запись/чтение журнала записи")
+Rel(ClientDataHandler,DBPIIS, "Шифрует/дешифрует персональные данные при записи/чтении")
+Rel(ClientDataHandler,PHIDB, "Шифрует/дешифрует персональные данные при записи/чтении")
+Rel(ClientDataHandler,PIIS3, "Шифрует/дешифрует персональные данные при записи/чтении")
+
+
+Rel(AdminPortalUI, AdminVisitService,"TLS1.3")
+Rel(AdminVisitService, DBJournal,"Чтение журнала записи")
+
+
+Rel(Doctor, DocrorService, "Ведение медкарты пациента")
+Rel(DocrorService,DBJournal, "Чтение журнала записи")
+Rel(DocrorService, PHIDB, "Шифрует/дешифрует персональные данные при записи/чтении")
+
+
+Rel(ITAdmin, DataDestroyer, "Настраивает параметры удаления различных типов данных по требованиям ФЗ")
+
+Rel(DataDestroyer,DBJournal, "Обфусцирует персональные данные")
+Rel(DataDestroyer,DBPIIS, "Обфусцирует персональные данные")
+Rel(DataDestroyer,PHIDB, "Обфусцирует персональные данные")
+Rel(DataDestroyer,PIIS3, "Удаляет данныe")
+
+
+
+
+@enduml
