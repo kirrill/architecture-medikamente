@@ -7,6 +7,8 @@ top to bottom direction
 
 Person(Patient, "Пациент")
 Person(Admin, "Администратор", "Сотрудник ресепшена")
+Person(ITAdmin, "Сисадмин", "Системный администратор")
+Person(Doctor, "Врач")
 System(Portal, "Medikamnete Portal")
 
 
@@ -18,45 +20,54 @@ Container_Boundary(DMZ, "DMZ") {
 
 Container_Boundary(Portal, "Portal") {
   
-  
- 
-  
   Container(AdminPortalUI, "Портал для сотрудников", "React")
-
   
-  Container(APIGateway, "APIGateway", "Kong")
-  
-  
-  Container(ClientVisitService, "Сервис записи на прием", "Java", "Раскладывает данные введеные/загруженные пользователем по соответсвующим хранилищам, в зависимосоти от их тэга")
+  Container(ClientVisitService, "Сервис записи на прием", "Java", "Позоваляет выбрать доктора, желаемое время и дату приема")
+  Container(ClientDataHandler, "Сервис управления персональными данными", "Сервис предназначен для ведения пользователем своих персональных/медицинских данных.")
   Container(AdminVisitService, "Сервис просмотра записей на прием", "Java", "Отображает только базовые данные пациента")
+  Container(DocrorService, "Сервис ведения приема", "Java", "Отображает только базовые данные пациента")
  
-  Container(DBPIIB, "PII:basic DB", "PostgreSQL", "Хранение базовых персональных данных пациентов")
-  Container(DBPIIS, "PII:sensitive DB", "PostgreSQL", "Хранение чувствительных персональных данных пациентов")
-  Container(PIIS3, "S3 хранилище", "S3", "Хранение файлов пациентов")
-  Container(PHIDB, "PHI DB", "PostgreSQL", "Хранение медицинских данных пациентов")
-
- 
+  Container(DBJournal, "БД журнал записи", "PostgreSQL", "Хранит ФИО и дату рождения.\r\n Зашифровано SHA-256")
+  Container(DBPIIS, "PII:sensitive DB", "PostgreSQL", "Хранение чувствительных персональных данных пациентов\r\n Зашифровано SHA-256")
+  Container(PIIS3, "S3 хранилище", "S3", "Хранение файлов пациентов\r\n Зашифровано SHA-256")
+  Container(PHIDB, "PHI DB", "PostgreSQL", "Хранение медицинских данных пациентов\r\n Зашифровано SHA-256")
+  
+  
+  Container(DataDestroyer, "Сервис для удаления/архивации данных", "Сервис по работает по расписанию или запросу, анализирует срок хранения данных и обезличивает/перемещает в архив")
 }
 
 Rel(Patient, ClientPortalUI, "Вносит данные для записи на прием [PII:basic,PII:sensitive]")
-Rel(Admin, AdminPortalUI, " [PII:basic,PII:sensitive]")
+Rel(Admin, AdminPortalUI, "Просмотр журнала записи")
 
-
-Rel(ClientPortalUI, ClientGateway,"TLS >= 1.3")
-Rel(ClientGateway, ClientVisitService,"TLS >= 1.3")
-
-Rel(AdminPortalUI, APIGateway,"TLS >= 1.3")
-Rel(APIGateway, AdminVisitService,"TLS >= 1.3")
-
-Rel(ClientVisitService,DBPIIB, "Пишет/читает базовые персональные данные в БД")
-Rel(ClientVisitService,DBPIIS, "Пишет/читает чувствительные данные в БД")
-Rel(ClientVisitService,PIIS3, "Пишет/читает файлы в хранилище")
+Rel(ClientPortalUI, ClientGateway,"TLS1.3")
+Rel(ClientGateway, ClientVisitService,"Запись к врачу \n TLS1.3")
+Rel(ClientGateway, ClientDataHandler,"Ввод персональных данных\nTLS1.3")
+Rel(ClientGateway, DataDestroyer,"Запрос на отзыв обработки персональных данных \n TLS1.3")
 
 
 
 
+Rel(ClientVisitService,DBJournal, "Запись/чтение журнала записи")
+Rel(ClientDataHandler,DBPIIS, "Шифрует/дешифрует персональные данные при записи/чтении")
+Rel(ClientDataHandler,PHIDB, "Шифрует/дешифрует персональные данные при записи/чтении")
+Rel(ClientDataHandler,PIIS3, "Шифрует/дешифрует персональные данные при записи/чтении")
 
 
+Rel(AdminPortalUI, AdminVisitService,"TLS1.3")
+Rel(AdminVisitService, DBJournal,"Чтение журнала записи")
+
+
+Rel(Doctor, DocrorService, "Ведение медкарты пациента")
+Rel(DocrorService,DBJournal, "Чтение журнала записи")
+Rel(DocrorService, PHIDB, "Шифрует/дешифрует персональные данные при записи/чтении")
+
+
+Rel(ITAdmin, DataDestroyer, "Настраивает параметры удаления различных типов данных по требованиям ФЗ")
+
+Rel(DataDestroyer,DBJournal, "Обфусцирует персональные данные")
+Rel(DataDestroyer,DBPIIS, "Обфусцирует персональные данные")
+Rel(DataDestroyer,PHIDB, "Обфусцирует персональные данные")
+Rel(DataDestroyer,PIIS3, "Удаляет данныe")
 
 
 
